@@ -1,0 +1,66 @@
+[
+  {
+    "type": "Energy",
+    "Set": 2
+  },{
+  "type": "Fatal",
+  "Set": 4
+},{
+  "type": "Blade",
+  "Set": 2
+},{
+  "type": "Rage",
+  "Set": 4
+},{
+  "type": "Swift",
+  "Set": 4
+},{
+  "type": "Focus",
+  "Set": 2
+},{
+  "type": "Guard",
+  "Set": 2
+},{
+  "type": "Endure",
+  "Set": 2
+},{
+  "type": "Violent",
+  "Set": 4
+},{
+  "type": "Will",
+  "Set": 2
+},{
+  "type": "Nemesis",
+  "Set": 2
+},{
+  "type": "Shield",
+  "Set": 2
+},{
+  "type": "Revenge",
+  "Set": 2
+},{
+  "type": "Despair",
+  "Set": 4
+},{
+  "type": "Vampire",
+  "Set": 4
+},{
+  "type": "Destroy",
+  "Set": 2
+},{
+  "type": "Fight",
+  "Set": 2
+},{
+  "type": "Determination",
+  "Set": 2
+},{
+  "type": "Enhance",
+  "Set": 2
+},{
+  "type": "Accuracy",
+  "Set": 2
+},{
+  "type": "Tolerance",
+  "Set": 2
+}
+]

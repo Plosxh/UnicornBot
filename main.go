@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/bwmarrin/discordgo"
 	//"go/types"
+	"os/exec"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -54,7 +55,7 @@ type SwarfarmResponse struct {
 	Previous string `json:"previous"`
 	Results []Monster `json:"results"`
 }
-type 	Monster struct {
+type Monster struct {
 	Id int `json:"id"`
 	Name string `json:"name"`
 	Image string `json:"image_filename"`
@@ -106,7 +107,7 @@ type Rune struct {
 
 }
 
-type Buildings struct {
+type Building struct {
 	Id int `json:"id"`
 	Area string `json:"area"`
 	AffectedStat string `json:"affected_stat"`
@@ -116,6 +117,13 @@ type Buildings struct {
 	StatBonus []int `json:"stat_bonus"`
 	UpgradeCost []int `json:"upgrade_cost"`
 	Description string `json:"description"`
+}
+
+type Buildings struct {
+	Count int `json"count"`
+	Next string `json:"next"`
+	Previous string `json:"previous"`
+	Results []Building `json:"results"`
 }
 
 type swarfarmBuilding struct {
@@ -181,10 +189,13 @@ type Skill struct {
 	Formula string `json:"multiplier_formula"`
 	Skills []int `json:"skill"`
 	Image string `json:"icon_filename"`
+	SkillUp []string `json:"level_progress_description"`
 }
 
 // Todo
 // Buildings
+// add skill up dans ?skill
+// Teams
 
 
 func init() {
@@ -199,8 +210,8 @@ func main() {
 	//MonstersList[970] = "Adrian"
 	//MonstersList[1] = "Forest Keeper"
 	// Create a new Discord session using the provided bot token.
-	dg, err := discordgo.New("Bot " + "")
-	//dg, err := discordgo.New("Bot " + "")
+	dg, err := discordgo.New("Bot " + "NjE4NDE3NjcwNTIxMzU2MzA4.XW5Yfw.P3QtTCg2IyioWL8T0J4mx7zSR0g")
+	//dg, err := discordgo.New("Bot " + "NjA2NDUxNTMyNDE3OTkwNjU2.XZRhLw.Fg7qhPaQ3fjCdYZEhVLMlRNBFl4")
 	if err != nil {
 		fmt.Println("error creating Discord session,", err)
 		return
@@ -215,6 +226,7 @@ func main() {
 
 	// Register messageCreate as a callback for the messageCreate events.
 	dg.AddHandler(messageCreate)
+	dg.AddHandler(UseReaction)
 
 	// Open the websocket and begin listening.
 	err = dg.Open()
@@ -249,38 +261,11 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 				_, _ = s.ChannelMessageSend(m.ChannelID, "<@400927402106028034> has been blocked")
 			}
 		}else if strings.Contains(m.Content,"?update") && m.Author.ID == "210801951552700416" {
-			var monsters SwarfarmResponse
-			url := "https://swarfarm.com/api/v2/monsters/?page=1"
-			//last_url := ""
-			errJson := getJson(url, &monsters)
-			if errJson != nil {
-				fmt.Println(errJson)
+			out, err := exec.Command("git", "pull").Output()
+			if err != nil {
+				print(err.Error())
 			}
-			for u:=1; u<15; u++{
-				fmt.Println(monsters.Count)
-				//last_url = "https://swarfarm.com/api/v2/monsters/?page=1"
-				fmt.Println("Next : "+monsters.Next)
-				for i:=0;i<len(monsters.Results) ;i++  {
-					MonstersList[monsters.Results[i].Id] = []string{monsters.Results[i].Name, monsters.Results[i].Image}
-				}
-				errJson := getJson(monsters.Next, &monsters)
-				if errJson != nil {
-					fmt.Println(errJson)
-				}
-
-			}
-			file,errorJson := json.Marshal(MonstersList)
-			erroFile := ioutil.WriteFile("./monsters.json",file,0644)
-			if erroFile != nil{
-				fmt.Println(erroFile)
-			}
-			if errorJson != nil{
-				fmt.Println(errorJson)
-			}
-			values:= make(map[string]string)
-			ToSend := CreateAnEmbed(strconv.Itoa(len(MonstersList)) + " monsters found !",values,"Update", "", false)
-			//_, _ = s.ChannelMessageSend(m.ChannelID, "done with "+strconv.Itoa(len(MonstersList))+" monsters")
-			_, _ = s.ChannelMessageSendEmbed(m.ChannelID, ToSend)
+			_, _ = s.ChannelMessageSend(m.ChannelID, string(out))
 
 		}else if strings.Contains(m.Content,"?add") && m.Author.ID == "210801951552700416" {
 			var GuildeMembers []string
@@ -349,7 +334,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 						"\n **RES:** "+strconv.Itoa(monsters.RES)+
 						"\n **ACC:** "+strconv.Itoa(monsters.ACC)
 
-					ToSend := CreateAnEmbed(" Nat "+strconv.Itoa(monsters.NaturalStars),fields,monsters.Name,MonstersList[monsters.Id][1], false)
+					ToSend := CreateAnEmbed(" Nat "+strconv.Itoa(monsters.NaturalStars),fields,monsters.Name,MonstersList[monsters.Id][1], "monsters")
 					_, _ = s.ChannelMessageSendEmbed(m.ChannelID, ToSend)
 					break
 				}
@@ -363,50 +348,48 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 			//	}
 			//}
 
-		}else if strings.Contains(m.Content, "?sf"){
+		}else if strings.Contains(m.Content, "?gibsette"){
+			gif := "https://tenor.com/view/ncis-slap-silly-scold-gibbs-gif-13523518"
+			_, _ = s.ChannelMessageSend(m.ChannelID, gif)
+		} else if strings.Contains(m.Content, "?sf"){
 			///api/v2/profiles/{user_pk}/monsters/
 			//splittedString := strings.Split(m.Content, " ")
 			splittedString := strings.TrimPrefix(m.Content, "?sf ")
 			userName := strings.Split(splittedString," ")
 			if len(userName) >= 2{
-				var profile SwarfarmResponseProfile
-				url := "https://swarfarm.com"+"/api/v2/profiles/"+userName[0]+"/monsters/?monster__name="+url.QueryEscape(strings.TrimPrefix(splittedString, userName[0]+" "))
-				errJson := getJson(url,&profile)
-				if errJson != nil {
-					fmt.Println(errJson)
-				}
-				monsterName := strings.TrimPrefix(splittedString, userName[0]+" ")
-				fmt.Println(monsterName)
-				fmt.Println(len(profile.Results))
-
-				if len(MonstersList) == 0{
-					GetMonsterFile()
-				}
-				monsterId := GetMonsterId(monsterName)
-				fmt.Println(monsterId)
-				MonsterFound := false
-				for i:=0;i<len(profile.Results) ;i++  {
-
-					if profile.Results[i].Id == monsterId {
-						fmt.Println(profile.Results[i])
-						//_, _ = s.ChannelMessageSend(m.ChannelID, profile.Results[i].Print(monsterName))
-						fields, _, stars, level := profile.Results[i].FormatPrint()
-						fmt.Println("found monster")
-						ToSend := CreateAnEmbed("Monster "+monsterName+" Lvl "+level+" "+stars+"*",fields,userName[0],MonstersList[monsterId][1],false)
-						_, _ = s.ChannelMessageSendEmbed(m.ChannelID, ToSend)
-						MonsterFound = true
-						break
+				monstersHit := GetMonsters(url.QueryEscape(strings.TrimPrefix(splittedString, userName[0]+" ")), userName[0])
+				IsMultiple := false
+				if len(monstersHit) == 0 {
+					_, _ = s.ChannelMessageSend(m.ChannelID, userName[0]+ " has no "+ url.QueryEscape(strings.TrimPrefix(splittedString, userName[0]+" ")))
+				}else {
+					fields, _, stars, level := monstersHit[0].FormatPrint()
+					ToAdd := ""
+					if len(monstersHit) > 1 {
+						ToAdd = " 1/"+strconv.Itoa(len(monstersHit))
+						IsMultiple = true
 					}
-				}
-				if !MonsterFound {
-					_, _ = s.ChannelMessageSend(m.ChannelID, userName[0]+ " has no "+monsterName)
+					ToSend := CreateAnEmbed("Monster "+url.QueryEscape(strings.TrimPrefix(splittedString, userName[0]+" "))+ ToAdd +" Lvl "+level+" "+stars+"*",fields,userName[0],MonstersList[monstersHit[0].Id][1],"monsters")
+					message, _ := s.ChannelMessageSendEmbed(m.ChannelID, ToSend)
+					if IsMultiple {
+						errorAddEmoji := s.MessageReactionAdd(m.ChannelID, message.ID,"⬅")
+						errorAddEmoji = s.MessageReactionAdd(m.ChannelID, message.ID,"➡")
+						if errorAddEmoji != nil {
+							fmt.Println(errorAddEmoji)
+						}
+					}
+
 				}
 			}
-		}else if strings.Contains(m.Content, "building"){
-			//buildings,errorBuild := getBuildings("darkashara")
-			//
-			//fields, _, stars, level := buildings.Results[].FormatPrint()
-			//ToSend := CreateAnEmbed("Monster "+monsterName+" Lvl "+level+" "+stars+"*",fields,userName[0],MonstersList[monsterId][1],false)
+		}else if strings.Contains(m.Content, "?building"){
+			splittedString := strings.TrimPrefix(m.Content, "?building ")
+			userName := strings.Split(splittedString," ")
+			buildings,errorBuild := getBuildings(userName[0])
+			if errorBuild != nil {
+				fmt.Println(errorBuild)
+			}
+			fields, _, _ := buildings.FormatPrint()
+			ToSend := CreateAnEmbed("Buildings",fields,userName[0],"","monsters")
+			_, _ = s.ChannelMessageSendEmbed(m.ChannelID, ToSend)
 
 		}else if strings.Contains(m.Content, "skill"){
 			//_, _ = s.ChannelMessageSend(m.ChannelID, "Command under maintenance")
@@ -494,6 +477,85 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 }
 
+func GetMonsters(name, user string) []ProfilMonster {
+	var monstersHit []ProfilMonster
+	var profile SwarfarmResponseProfile
+	url := "https://swarfarm.com"+"/api/v2/profiles/"+user+"/monsters/?monster__name="+name+"&ordering=avg_rune_efficiency"
+	errJson := getJson(url,&profile)
+	if errJson != nil {
+		fmt.Println(errJson)
+	}
+	//monsterName := strings.TrimPrefix(splittedString, userName[0]+" ")
+
+	if len(MonstersList) == 0{
+		GetMonsterFile()
+	}
+	monsterId := GetMonsterId(name)
+	//var monstersHit []ProfilMonster
+	for i:=0;i<len(profile.Results) ;i++  {
+
+		if profile.Results[i].Id == monsterId {
+			fmt.Println("found a monster")
+			monstersHit = append(monstersHit,profile.Results[i])
+			fmt.Println(monstersHit)
+
+		}
+	}
+	OrderedMonsters := reverseInts(monstersHit)
+	return OrderedMonsters
+}
+
+func UseReaction(s *discordgo.Session, m *discordgo.MessageReactionAdd)  {
+	if m.UserID != BotID {
+		message, error := s.ChannelMessage(m.ChannelID,m.MessageID)
+		if error != nil {
+			fmt.Println(error)
+		}
+		fmt.Println("Ò")
+		fmt.Println(m.Emoji)
+		fmt.Println(m.Emoji.ID)
+		if message.Author.ID == BotID {
+			for i:= 0; i<len(message.Embeds) ; i++ {
+				InitialMobFound := 0
+				splittedString := strings.Split(message.Embeds[i].Description, " ")
+				monsterName := url.QueryEscape(splittedString[1])
+				url := "https://swarfarm.com"+"/api/v2/profiles/"+message.Embeds[i].Title+"/monsters/?monster__name="+monsterName
+				fmt.Println(url)
+				for s := 0; s<len(splittedString) ; s++ {
+					if strings.Contains(splittedString[s], "/") {
+						InitialMobFound,_ = strconv.Atoi(strings.Split(splittedString[s], "/")[0])
+					}
+				}
+				monstersHit := GetMonsters(monsterName,message.Embeds[i].Title)
+				if len(monstersHit) > InitialMobFound {
+					fields, _, stars, level := monstersHit[InitialMobFound +1].FormatPrint()
+					ToAdd := ""
+					if len(monstersHit) > 1 {
+						ToAdd = " "+strconv.Itoa(InitialMobFound +1)+"/"+strconv.Itoa(len(monstersHit) -1)
+					}
+					ToSend := CreateAnEmbed("Monster "+monsterName+ ToAdd +" Lvl "+level+" "+stars+"*",fields,message.Embeds[i].Title,MonstersList[monstersHit[0].Id][1],"monsters")
+					//_, _ = s.ChannelMessageSendEmbed(m.ChannelID, ToSend)
+					_,_ = s.ChannelMessageEditEmbed(m.ChannelID, m.MessageID, ToSend)
+				}
+
+			}
+			fmt.Println(m.Emoji)
+			errorRemove := s.MessageReactionRemove(m.ChannelID,m.MessageID,m.Emoji.Name,m.UserID)
+			if errorRemove != nil {
+				fmt.Println(errorRemove)
+			}
+		}
+	}
+
+}
+
+func reverseInts(input []ProfilMonster) []ProfilMonster {
+	if len(input) == 0 {
+		return input
+	}
+	return append(reverseInts(input[1:]), input[0])
+}
+
 func getJson(url string, target interface{}) error {
 	r, err := http.Get(url)
 	if err != nil {
@@ -511,6 +573,7 @@ func GetSkill(s int) (Skill, error){
 	var skill Skill
 	url := "https://swarfarm.com/api/v2/skills/"
 	errJson := getJson(url+strconv.Itoa(s), &skill)
+	fmt.Println(url+strconv.Itoa(s))
 	if errJson != nil {
 		fmt.Println(errJson)
 		return skill, &errorString{"skill not found"}
@@ -597,7 +660,10 @@ func (n *Skill) Print() (*discordgo.MessageEmbed) {
 	if n.Formula != "" {
 		fields["Formula"] = n.Formula
 	}
-	result := CreateAnEmbed(n.Description, fields, n.Name, n.Image, true)
+	for i:=0; i<len(n.SkillUp) ; i++  {
+		fields["Skill Up"] = fields["Skill Up"] +"\nLv."+strconv.Itoa(i +1)+n.SkillUp[i]
+	}
+	result := CreateAnEmbed(n.Description, fields, n.Name, n.Image, "skills")
 	//result = n.Name+" \n Description :"+n.Description +" \n Damage formula : " + n.Formula + " \n CoolTime "+ strconv.Itoa(n.CoolTime) +" \n Hits :"+strconv.Itoa(n.Hits)+" targets"
 	return result
 }
@@ -623,31 +689,21 @@ func (n *ProfilMonster) Print(name string) (string) {
 	return result
 }
 
-func (n *ProfilBuilding) FormatPrint() (map[string]string, string, string, string){
+func (n *ProfilBuilding) FormatPrint() (map[string]string, string, string){
 	fields := make(map[string]string)
 	var name string
-	var stars string
-	var level string
-	//fields["Principales"] ="**HP:** "+strconv.Itoa(n.BaseHP+n.RuneHP)+
-	//	"\n **ATK:** "+ strconv.Itoa(n.BaseATK+n.RuneATK)+
-	//	"\n **DEF:** "+strconv.Itoa(n.BaseDEF+n.RuneDEF)+
-	//	"\n **SPD:** "+strconv.Itoa(n.BaseSPD+n.RuneSPD)
-	//
-	////fields["ATK"] =strconv.Itoa(n.BaseATK+n.RuneATK)
-	////fields["DEF"] =strconv.Itoa(n.BaseDEF+n.RuneDEF)
-	////fields["SPD"] =strconv.Itoa(n.BaseSPD+n.RuneSPD)
-	//fields["Secondaires"] ="**CR:** "+strconv.Itoa(n.BaseCR+n.RuneCR)+
-	//	"\n **CD:** "+strconv.Itoa(n.BaseCD+n.RuneCD)+
-	//	"\n **RES:** "+strconv.Itoa(n.BaseRES+n.RuneRES)+
-	//	"\n **ACC:** "+strconv.Itoa(n.BaseACC+n.RuneACC)
-	////fields["CD"] =strconv.Itoa(n.BaseCD+n.RuneCD)
-	////fields["RES"] =strconv.Itoa(n.BaseRES+n.RuneRES)
-	////fields["ACC"] =strconv.Itoa(n.BaseACC+n.RuneACC)
-	//fields["Efficiency"] =fmt.Sprintf("%f", n.AverageRuneffeciency)+"%"
-	//name = n.Name
-	//stars = strconv.Itoa(n.Star)
-	//level = strconv.Itoa(n.Level)
-	return fields, name, stars, level
+	//var image string
+	var AllBuildings Buildings
+	url := "https://swarfarm.com/api/v2/buildings/"
+	errJson := getJson(url, &AllBuildings)
+	if errJson != nil {
+		fmt.Println(errJson)
+	}
+	for i:=0; i< len(n.Results);i++  {
+		fields[AllBuildings.Results[n.Results[i].BuildingID -1].Name] = "**Level:** "+ strconv.Itoa(n.Results[i].Level)+"/"+strconv.Itoa(AllBuildings.Results[n.Results[i].BuildingID -1].MaxLevel)+
+			"% \n **Bonus:** "+ AllBuildings.Results[n.Results[i].BuildingID -1].AffectedStat+ strconv.Itoa(AllBuildings.Results[n.Results[i].BuildingID -1].StatBonus[n.Results[i].Level -1])+ " in "+AllBuildings.Results[n.Results[i].BuildingID -1].Area
+	}
+	return fields, name, ""
 }
 
 func (n *ProfilMonster) FormatPrint() (map[string]string, string, string, string){
@@ -664,40 +720,14 @@ func (n *ProfilMonster) FormatPrint() (map[string]string, string, string, string
 		"\n **DEF:** "+strconv.Itoa(n.BaseDEF+n.RuneDEF)+
 		"\n **SPD:** "+strconv.Itoa(n.BaseSPD+n.RuneSPD)
 
-	//fields["ATK"] =strconv.Itoa(n.BaseATK+n.RuneATK)
-	//fields["DEF"] =strconv.Itoa(n.BaseDEF+n.RuneDEF)
-	//fields["SPD"] =strconv.Itoa(n.BaseSPD+n.RuneSPD)
 	fields["Secondaires"] ="**CR:** "+strconv.Itoa(n.BaseCR+n.RuneCR)+
 		"\n **CD:** "+strconv.Itoa(n.BaseCD+n.RuneCD)+
 		"\n **RES:** "+strconv.Itoa(n.BaseRES+n.RuneRES)+
 		"\n **ACC:** "+strconv.Itoa(n.BaseACC+n.RuneACC)
-	//fields["CD"] =strconv.Itoa(n.BaseCD+n.RuneCD)
-	//fields["RES"] =strconv.Itoa(n.BaseRES+n.RuneRES)
-	//fields["ACC"] =strconv.Itoa(n.BaseACC+n.RuneACC)
 	fields["Efficiency"] =fmt.Sprintf("%f", n.AverageRuneffeciency)+"%"
 
 	for i:=0; i< len(n.Runes) ; i++  {
-		//fmt.Println(RunesMapping[n.Runes[i].Type-1].Type)
-		//RunesMapping[n.Runes[i].Type-1].Set = RunesMapping[n.Runes[i].Type-1].Set -1
-		//fmt.Println(RunesMapping[n.Runes[i].Type-1].Set)
-		//if RunesMapping[n.Runes[i].Type-1].Set ==0 {
-		//	fmt.Println("found a zero")
-		//	if fields["RuneSet"] != "" {
-		//		fmt.Println("found a set")
-		//		fields["RuneSet"] = fields["RuneSet"] +"/"+	RunesMapping[n.Runes[i].Type-1].Type
-		//		fmt.Println(fields)
-		//	}else{
-		//		fmt.Println("found a set")
-		//		fields["RuneSet"] = RunesMapping[n.Runes[i].Type-1].Type
-		//		fmt.Println(fields)
-		//	}
-		//
-		//}
 		RuneCheck[n.Runes[i].Type] = RuneCheck[n.Runes[i].Type] + 1
-		//fmt.Println("nb attribute rune 6 : "+strconv.Itoa(n.Runes[5].MainValue))
-		//fmt.Println("nb attributes : "+strconv.Itoa(len(AttributeMapping)))
-		//fields["Build"] = AttributeMapping[n.Runes[1].Main -1]+"/"+AttributeMapping[n.Runes[3].Main -1]+"/"+AttributeMapping[n.Runes[5].Main -1]
-
 	}
 	IsBroken := false
 	for key, value := range RuneCheck  {
@@ -716,10 +746,24 @@ func (n *ProfilMonster) FormatPrint() (map[string]string, string, string, string
 		if fields["Set"] != "" {
 			fields["Set"] = fields["Set"] + "/"
 		}
-		fields["Sets"] = fields["Set"] + "Broken"
+		fields["Set"] = fields["Set"] + "Broken"
 	}
-	fields["Build"] = AttributeMapping[n.Runes[1].Main -1]+"/"+AttributeMapping[n.Runes[3].Main -1]+"/"+AttributeMapping[n.Runes[5].Main -1]
 
+	if len(n.Runes)>1 {
+		fields["Build"] = AttributeMapping[n.Runes[1].Main -1]
+	}else{
+		fields["Build"] = fields["Build"]+"None"
+	}
+	if len(n.Runes)>2 {
+		fields["Build"] = fields["Build"]+"/"+AttributeMapping[n.Runes[3].Main -1]
+	}else{
+		fields["Build"] = fields["Build"]+"/None"
+	}
+	if len(n.Runes)>4 {
+		fields["Build"] = fields["Build"]+"/"+AttributeMapping[n.Runes[5].Main -1]
+	}else{
+		fields["Build"] = fields["Build"]+"/None"
+	}
 	name = n.Name
 	stars = strconv.Itoa(n.Star)
 	level = strconv.Itoa(n.Level)
@@ -755,17 +799,13 @@ func (n *Profile) PrintMonster() (string) {
 	return result
 }
 
-func CreateAnEmbed(description string, fields map[string]string, title string, img string, isSkill bool) *discordgo.MessageEmbed{
+func CreateAnEmbed(description string, fields map[string]string, title string, img string, which string) *discordgo.MessageEmbed{
 	var fieldsToSend []*discordgo.MessageEmbedField
-	var urlModifier = "monsters"
-	if isSkill {
-		urlModifier = "skills"
-	}
 	for key, value := range fields {
 		fieldsToSend= append(fieldsToSend,&discordgo.MessageEmbedField{
 					Name:   key,
 					Value:  value,
-					Inline: true,
+					Inline: false,
 				} )
 	}
 	embed := &discordgo.MessageEmbed{
@@ -789,7 +829,7 @@ func CreateAnEmbed(description string, fields map[string]string, title string, i
 		//	URL: "https://swarfarm.com/static/herders/images/monsters/"+img,
 		//},
 		Thumbnail: &discordgo.MessageEmbedThumbnail{
-			URL: "https://swarfarm.com/static/herders/images/"+urlModifier+"/"+img,
+			URL: "https://swarfarm.com/static/herders/images/"+which+"/"+img,
 		},
 		//Timestamp: time.Now().Format(time.RFC3339), // Discord wants ISO8601; RFC3339 is an extension of ISO8601 and should be completely compatible.
 		Title:     title,
